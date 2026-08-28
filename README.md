@@ -8,6 +8,14 @@
 
 Build robotics applications against consistent interfaces across simulation and physical hardware, without binding application logic to one robot, framework, or vendor.
 
+<!-- Add dynamic release and download badges here after the first published release. -->
+<p>
+  <img alt="Status: Beta" src="https://img.shields.io/badge/status-beta-A16207?style=flat-square">
+  <img alt="Platform: Linux" src="https://img.shields.io/badge/platform-Linux-18181B?style=flat-square&logo=linux&logoColor=white">
+  <img alt="Architectures: x86_64 and AArch64" src="https://img.shields.io/badge/architectures-x86__64%20%7C%20AArch64-334155?style=flat-square">
+  <img alt="Distribution: Official binaries" src="https://img.shields.io/badge/distribution-official%20binaries-0F766E?style=flat-square">
+</p>
+
 [Releases](https://github.com/r2kernel/r2kernel/releases) · [Start here](#start-here) · [Source model](#availability-and-source-model)
 
 </div>
