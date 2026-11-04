@@ -1,0 +1,15 @@
+{
+  "build_id": "1.0.0-20261104T084830Z-96f17673",
+  "distribution_url": "https://download.r2kernel.org",
+  "docs_site_url": "https://docs.r2kernel.org/",
+  "download_base_url": "https://download.r2kernel.org/r2kernel/releases/1.0.0",
+  "product": "r2kernel",
+  "release_tag": "v1.0.0",
+  "release_version": "1.0.0",
+  "repositories": {
+    "docs": "https://github.com/r2kernel/docs.git",
+    "entry": "https://github.com/r2kernel/r2kernel.git",
+    "sdk": "https://github.com/r2kernel/sdk.git"
+  },
+  "schema_version": 1
+}

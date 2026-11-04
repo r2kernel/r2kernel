@@ -1,125 +1,271 @@
-<div align="center">
-
 # R2Kernel
 
-### Robotics Runtime Kernel
+R2Kernel is a subsystem-oriented robotics runtime platform with:
 
-**Runtime infrastructure for portable robotics software.**
+- a proprietary runtime/control bundle
+- Apache-2.0 SDKs, tutorials, and public source
 
-Build robotics applications against consistent interfaces across simulation and physical hardware, without binding application logic to one robot, framework, or vendor.
+This entry repository corresponds to release `v1.0.0` (version
+`1.0.0`). It contains generated installation and release metadata;
+SDK/tutorial source and documentation live in separate repositories.
 
-![Status: Beta](https://img.shields.io/badge/status-beta-A16207?style=flat-square)
-![Platform: Linux](https://img.shields.io/badge/platform-Linux-18181B?style=flat-square&logo=linux&logoColor=white)
-![Architectures: x86_64 and AArch64](https://img.shields.io/badge/architectures-x86__64%20%7C%20AArch64-334155?style=flat-square)
-![Distribution: Official binaries](https://img.shields.io/badge/distribution-official%20binaries-0F766E?style=flat-square)
+## Download Notice
 
-[Releases](https://github.com/r2kernel/r2kernel/releases) · [Documentation](https://github.com/r2kernel/r2kernel-docs) · [SDK](https://github.com/r2kernel/r2kernel-sdk) · [Demo](https://github.com/r2kernel/r2kernel-demo)
+Official R2Kernel distribution endpoints may record download and installation
+metadata, including install session ID, client IP address, user agent, requested
+release, platform, architecture, artifact name, response status, and requested
+artifact size (the stored size of the requested artifact, not bytes received).
+This data is used for artifact delivery, release diagnostics, abuse
+investigation, security, and distribution reliability. See the
+[Distribution And Licensing](https://docs.r2kernel.org/reference/distribution-and-licensing/) and installed notices.
 
-</div>
+## Quick Start
 
----
+Ubuntu / Debian package prerequisites for the commands below:
 
-## What is R2Kernel?
-
-R2Kernel is a runtime foundation for composing, connecting, and operating modular robotics software. It is designed to:
-
-- run and coordinate robotics software components;
-- preserve application-facing interfaces between simulation and physical hardware;
-- isolate applications from device-, framework-, and vendor-specific implementations; and
-- provide a stable distribution boundary for runtime, SDK, protocol, and integration releases.
-
-> This repository is the official product, installation, and release entry point. It is not the source repository for the R2Kernel core runtime.
-
-## Start here
-
-| Goal | Destination |
-|---|---|
-| Install or update the runtime | [Official releases](https://github.com/r2kernel/r2kernel/releases) |
-| Learn concepts and APIs | [R2Kernel documentation](https://github.com/r2kernel/r2kernel-docs) |
-| Build an application | [R2Kernel SDK](https://github.com/r2kernel/r2kernel-sdk) |
-| Run a complete scenario | [R2Kernel demo](https://github.com/r2kernel/r2kernel-demo) |
-| Inspect the compatible repository set | [r2kernel.repos](https://github.com/r2kernel/r2kernel/blob/main/r2kernel.repos) |
-| Report a vulnerability | Follow the private reporting instructions in [Security](#security) |
-
-## Repository topology
-
-| Repository | Responsibility | Version relationship |
-|---|---|---|
-| [r2kernel](https://github.com/r2kernel/r2kernel) | Installer, binary releases, checksums, signatures, release notes, and release manifest | Canonical release version |
-| [r2kernel-sdk](https://github.com/r2kernel/r2kernel-sdk) | SDKs, public interfaces, protocols, tutorials, and development examples | Pinned by the matching runtime release |
-| [r2kernel-docs](https://github.com/r2kernel/r2kernel-docs) | Product concepts, installation guidance, API and release documentation | Pinned by the matching runtime release |
-| [r2kernel-demo](https://github.com/r2kernel/r2kernel-demo) | Complete runnable evaluation and learning scenarios | Independent release; declares its tested runtime version |
-
-The repositories are peers within the [R2Kernel organization](https://github.com/r2kernel). Their hierarchy is defined by this product entry point, the Organization profile, and the versioned release manifest—not by nested Git repositories.
-
-## Installation
-
-Official installers and packages are published only through this repository's [Releases](https://github.com/r2kernel/r2kernel/releases). Once the first signed release is available, the installer on the default branch will target the release currently published here:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/r2kernel/r2kernel/main/install.sh | sh
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl git python3 python3-venv python3-pip libzmq5
 ```
 
-Until then, treat this repository as a pre-release entry point. For security-sensitive environments, download and inspect `install.sh` before execution and verify the matching release checksum and signature.
+The fixed installation entry requires `curl` to select and download a release.
 
-## Versioned repository set
+The Linux product config enables managed PTP time sync by default. A product
+install into a protected prefix, such as the default, can register five
+installer-managed systemd units:
 
-Each official release generates two machine-readable files:
+- `r2kernel-control.service`, which runs as the non-root `r2kernel` account
+- `r2kernel-resourced.service`
+- `r2kernel-timesyncd.service`
+- `r2kernel-terminal-login.service` and `r2kernel-https-settings.service`, two
+  root-only helpers for Terminal local OS login and Console HTTPS settings,
+  installed together with the Control service
 
-- `r2kernel.repos` pins the compatible SDK and documentation revisions.
-- `release.json` describes the release, supported platforms, artifacts, and verification metadata.
+A user prefix installs without system services. If you skip service setup,
+switch `time_sync.management_mode=external` when you do not want
+installer-managed time sync, or install the services later with
+`<prefix>/bin/r2kernel-system-service-install`.
 
-This makes a release reproducible without turning the product repository into a monorepo. The demo repository remains independent and states the R2Kernel release against which each demo version was tested.
+The installer-managed time-sync path keeps transient state under
+`/run/r2kernel/time-sync`, not inside the install prefix.
 
-## Availability and source model
+The install script runs as the current user first and requests `sudo` only when
+the selected prefix or system service registration needs elevated privileges.
+Before any `sudo` prompt it parses every argument and checks the prefix
+location with the downloaded, hash-verified installer; checks that need the
+release or root privileges run after elevation, before anything is downloaded
+or installed. It elevates only for a protected prefix (root-owned, not a
+symbolic link and not group/other writable): a user prefix (for example in your
+home directory) installs without `sudo`, and system service registration needs
+a protected prefix such as the default. An installer running as root refuses
+any other prefix.
 
-| Component | Availability | Source availability |
-|---|---|---|
-| R2Kernel Runtime | Free official binary releases | Core runtime source is not public |
-| R2Kernel SDK and clients | Development libraries | Open source when published |
-| Protocols and interfaces | Integration specifications | Public when published |
-| Documentation and examples | Learning and reference material | Open source when published |
-| Selected adapters | Repository-specific releases | Defined by each repository |
-| Enterprise and OEM support | Separate agreement | Not applicable |
+The prefix must be a dedicated directory. System locations such as `/`,
+`/usr`, `/usr/local` or `/opt`, home directories and world-writable or sticky
+directories are refused. An existing directory that is not empty is used only
+when it holds an earlier R2Kernel installation; otherwise the installer stops
+and names the entries it found. In an R2Kernel prefix the installer replaces
+only what an earlier R2Kernel install created; a foreign `bin`, `lib` or other
+product entry stops the installation with an error naming that path. The
+uninstaller removes only the entries R2Kernel manages and lists anything else
+it leaves in the prefix.
 
-Free use and open source are not the same thing. Each repository and release carries its own license. No open-source license should be inferred for the runtime binary or another artifact unless the relevant repository or release explicitly states one.
+The selected release's script pins the SHA256 of the installer binary and of the
+release manifest, and the installer refuses a manifest whose bytes or release
+version differ. Release locations must use `https://`; `R2KERNEL_ALLOW_PLAIN_HTTP=1`
+is an explicit opt-in for a trusted local mirror. With a distribution token,
+curl 7.58 or later is required: the token is read from a private header file and
+never sent to another host on a redirect.
 
-## Repository contract
+Interactive install:
 
-Product documentation and policy files are maintained deliberately. Release automation updates only the generated distribution files:
+```bash
+curl --proto '=https' --tlsv1.2 -fsSL https://download.r2kernel.org/install.sh | sh
+```
 
-| File | Maintained by |
-|---|---|
-| `README.md` | Product maintainers |
-| `install.sh` | Release automation |
-| `r2kernel.repos` | Release automation |
-| `release.json` | Release automation |
-| Checksums, signatures, and release assets | Release automation |
+This fixed URL defaults to the current stable release. Use
+`--version 1.0.0` to select this repository's release, or
+`--channel beta` to use the beta channel. Choose one selection option; other
+installer arguments are passed through. See the
+[Installation Reference](https://docs.r2kernel.org/reference/installation-reference/#exact-release-selection)
+for commands and selection rules. This repository's `install.sh` and its asset
+in [Releases](https://github.com/r2kernel/r2kernel/releases) remain fixed to `1.0.0`.
 
-SDK and documentation repositories are generated from the corresponding release inputs. Their README files must therefore be produced from maintained templates rather than edited only on GitHub. The demo repository follows its own source and release process.
+The default interactive flow uses a full-screen terminal installer when a TTY is
+available. To force the line-based prompt flow instead:
 
-## Status and platforms
+```bash
+curl --proto '=https' --tlsv1.2 -fsSL https://download.r2kernel.org/install.sh | sh -s -- --no-tui
+```
 
-R2Kernel is currently in **Beta**. Initial release tooling targets Linux on x86_64 and AArch64. Each release defines its exact platform support, compatibility boundaries, known limitations, upgrade guidance, and support policy.
+Runtime license acceptance is manual only. The installer does not support an
+automatic license-acceptance flag.
 
-## Security
+Options given to the installer are used as given; the wizard asks only the
+remaining questions. Every option that takes a value accepts `--option VALUE`
+and `--option=VALUE`. `--non-interactive` (alias `--yes`) never prompts: a
+missing decision, such as `--existing-prefix overwrite|abort` for a non-empty
+prefix, is an error, and a release that requires license acceptance is refused.
 
-Use only artifacts published by the R2Kernel organization. Security reports must be submitted privately and should not be disclosed through a public issue before a fix is available. A dedicated security policy and private reporting channel will be published before public binary distribution.
+To register the Linux privileged services during the manual installation flow:
 
-## Contributing
+```bash
+curl --proto '=https' --tlsv1.2 -fsSL https://download.r2kernel.org/install.sh | sh -s -- --system-services install
+```
 
-Editable source checkout is intended for SDK, interface, documentation, example, and integration work. The core runtime is installed as an official binary.
+The default install prefix is `/opt/r2kernel`; `<prefix>` below means the
+selected prefix. To use a development user prefix:
 
-Before contributing, review the target repository's license, contribution guidance, supported scope, and security policy. External contributions are accepted only in repositories that explicitly say so.
+```bash
+curl --proto '=https' --tlsv1.2 -fsSL https://download.r2kernel.org/install.sh | sh -s -- --prefix ~/.local/r2kernel
+```
 
-## Governance
+For this custom prefix, source its generated environment file before using
+installed SDK/runtime commands or tutorials:
 
-R2Kernel is a founder-led robotics infrastructure project operated by **LRH Korea Inc.**
+```bash
+. "$HOME/.local/r2kernel/env.sh"
+```
 
-- Founder and Principal Architect: **Justin H. Kang**
-- Project direction and official releases are managed by LRH Korea.
-- Commercial support, sponsored development, OEM integration, and long-term support are handled separately.
+For custom public spec YAML with this prefix, keep the installed spec available
+as fallback with an overlay path:
 
-## Legal
+```bash
+. "$HOME/.local/r2kernel/env.sh"
+export R2KERNEL_SPEC_PATH=/path/to/custom_spec:$R2KERNEL_SPEC_ROOT
+```
 
-Repository-specific licenses govern the material in each repository. Runtime binaries, SDK source, documentation, and other artifacts may be distributed under different terms. R2Kernel names, logos, and related marks are governed separately from source-code licenses.
+## What Gets Installed
+
+- runtime payload under `<prefix>/runtime`
+- top-level entry points under `<prefix>/bin`, `<prefix>/spec`, and `<prefix>/config.yaml`
+- shell environment helper under `<prefix>/env.sh`
+- C++ SDK under `<prefix>/sdk/cpp`
+- Python SDK wheel under `<prefix>/sdk/python`
+- guided tutorials under `<prefix>/tutorials`
+- QA fixtures under `<prefix>/runtime/tools/qa/fixtures`
+- license and notice documents under `<prefix>/licenses`
+- service unit sources under `<prefix>/systemd`
+- runtime state and logs under `<prefix>/var`
+- uninstaller under `<prefix>/bin/r2kernel-uninstall`
+- optional Linux privileged services via `r2kernel-system-service-install`
+
+The installer prepares a versioned Python environment with the SDK and declared
+dependencies under `<prefix>/sdk/python/environments`; `sdk/python/current`
+selects the active one. Sourcing `env.sh` selects that interpreter for installed
+tutorials and exports `R2KERNEL_PYTHON` for runtime use. Normal installed use does
+not require another virtual environment or an SDK checkout. Managed service and
+package launches use the managed interpreter, unless an explicit package
+interpreter is configured; shell activation alone does not change their policy.
+
+For an isolated development shell, source the runtime environment **before**
+activating a separate venv. Do not source `env.sh` again afterwards: it can put
+the managed interpreter ahead of the development one. Use the host Python to
+create the development environment:
+
+```bash
+. <prefix>/env.sh
+unset PYTHONPATH
+/usr/bin/python3 -m venv r2kernel-quickstart
+. r2kernel-quickstart/bin/activate
+python -m pip install <prefix>/sdk/python/r2kernel_client-*.whl
+```
+
+Clearing `PYTHONPATH` removes the installed SDK import path injected by `env.sh`,
+so development uses the venv's wheel or editable SDK. Re-add unrelated custom
+import paths explicitly if needed. This does not change `R2KERNEL_PYTHON`.
+
+Guided tutorials and advanced runtime exercises are installed into the local
+runtime prefix:
+
+```bash
+cd <prefix>
+ls tutorials sdk/python
+```
+
+Clone the SDK source repo only when you need editable SDK development,
+source-level SDK tests, or full source inspection:
+
+```bash
+git clone https://github.com/r2kernel/sdk.git r2kernel-sdk
+```
+
+For editable SDK development, use the development venv above, then:
+
+```bash
+cd r2kernel-sdk
+python -m pip install -e sdk/python
+```
+
+Robotics application demos are maintained separately from this split core
+distribution. Follow the published documentation for the appropriate demo;
+they are not contents of the entry repository.
+
+Then follow the guided learning path from the activated shell and the installed
+`<prefix>` tree.
+
+Many runnable tutorials use more than one terminal:
+
+- one terminal for the installed control backend
+- one or more additional terminals for simulator, gateway, component, compound,
+  or application subsystem processes
+
+Long-running tutorial processes usually stay up until you stop them with
+`Ctrl-C`.
+
+If you want to build installed C++ tutorials, install a host compiler toolchain
+first. Add `cmake` when you also want to rebuild the public C++ SDK source
+from an editable checkout.
+
+Ubuntu / Debian:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake
+```
+
+The public C++ tutorial build scripts reuse the installed SDK/runtime under
+`<prefix>`, so `cargo` is not required for the normal installed-user flow.
+
+The public C++ SDK source can also be rebuilt against the installed runtime core
+library:
+
+```bash
+cmake -S sdk/cpp -B build/r2kernel-client-cpp \
+  -DR2KERNEL_RUST_CORE_DIR=<prefix>/runtime/lib
+cmake --build build/r2kernel-client-cpp
+```
+
+## Documentation
+
+- [Published docs](https://docs.r2kernel.org/)
+- [Installation guide](https://docs.r2kernel.org/getting-started/installation/)
+- [Quickstart](https://docs.r2kernel.org/getting-started/quickstart/)
+- [Developer guide](https://docs.r2kernel.org/develop/developer-guide/)
+
+## Feedback
+
+Use [R2Kernel Issues](https://github.com/r2kernel/r2kernel/issues) for bug reports, feature requests,
+usage questions, and SDK or documentation feedback. Include the release version,
+affected component, environment, and a minimal reproducer where applicable.
+
+## Split Distribution
+
+- this entry repository: generated `README.md`, `install.sh`, `r2kernel.repos`,
+  and `release.json`
+- [SDK source](https://github.com/r2kernel/sdk.git): public Python/C++ SDKs, tutorials, QA
+  fixtures, public specs, and C ABI headers
+- [Documentation source](https://github.com/r2kernel/docs.git): documentation and site tooling
+- installer download service: proprietary runtime/control binaries and
+  installable SDK artifacts
+
+Private runtime implementation and Rust/Core source are not published in the
+SDK repository.
+
+## Licensing
+
+- runtime installer-delivered payloads: proprietary runtime license
+- SDKs, tutorials, docs, and public source: Apache-2.0
+
+See the installed license/notice files and
+[Distribution And Licensing](https://docs.r2kernel.org/reference/distribution-and-licensing/) for details.
