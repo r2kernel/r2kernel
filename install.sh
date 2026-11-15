@@ -7,7 +7,7 @@ set -eu
 main() {
 VERSION=1.0.0
 TAG=v1.0.0
-EXPECTED_MANIFEST_SHA256=ce7b64c35fe77b4658a86b4c5a48c1e2f97cb419b5f468b553d9fa2e8f957eac
+EXPECTED_MANIFEST_SHA256=530151e1a12e51f7d2984c94746a44c42fe493f08968a05691d127f5e8a699dc
 DEFAULT_REPO_SLUG=r2kernel/r2kernel
 REPO_SLUG="${R2KERNEL_RELEASE_REPO_SLUG:-$DEFAULT_REPO_SLUG}"
 if [ -n "${R2KERNEL_INSTALL_ID:-}" ]; then
@@ -44,8 +44,8 @@ esac
 # This is integrity verification against this script, not a signature: anyone
 # who can change this script can change the hashes, so obtain it over HTTPS.
 case "$os_name-$arch_name" in
-  linux-aarch64) EXPECTED_INSTALLER_SHA256="b143e732b93aba6d993c59422efb0a5f65a0ba3780e76545223d9be4f87e5dec" ;;
-  linux-x86_64) EXPECTED_INSTALLER_SHA256="a0f5368288ef127fcd50eab09e657ca09557d809f21030aa5f05d23d3600c5cd" ;;
+  linux-aarch64) EXPECTED_INSTALLER_SHA256="23d9c49e144745e610c5e2c2217c643e7e5e522cf53b6dd26676befeda5eabd7" ;;
+  linux-x86_64) EXPECTED_INSTALLER_SHA256="f9741d256268558096d90d4c50f962324f957267cd95173ce00748ba98d42f22" ;;
   *) echo "No trusted installer SHA256 for $os_name-$arch_name in release $VERSION." >&2; exit 1 ;;
 esac
 if command -v sha256sum >/dev/null 2>&1; then
@@ -128,23 +128,23 @@ if [ -n "$TOKEN_OPTION" ]; then
   read_install_token_file "$TOKEN_VALUE" || exit 1
 fi
 
-# A configured install token is sent only by curl 7.58 or later: it reads the
-# header from a private file (-H @file, 7.55+) and does not send a custom
-# Authorization header to another host when it follows a redirect (7.58+).
+# Keep the established curl 7.58 minimum for configured tokens. The first
+# control request reads its header from a private file. The fetch routine below
+# follows redirects manually and removes credentials and the custom session ID.
 # Wget is never used with a token. Check this before any request; never
 # download without the configured token.
 if [ -n "$INSTALL_TOKEN" ]; then
   if curl_at_least 7 58; then
     FETCH_TOOL=curl
   else
-    echo "An install token is configured, but sending it safely requires curl 7.58 or later (reads the header from a private file and does not forward it to another host on a redirect). Wget is not used with a token. Install or upgrade curl. No download is attempted without the token." >&2
+    echo "An install token is configured, but sending it safely requires curl 7.58 or later (private header file and separate credential-free redirect requests). Wget is not used with a token. Install or upgrade curl. No download is attempted without the token." >&2
     exit 1
   fi
 elif command -v curl >/dev/null 2>&1; then
   FETCH_TOOL=curl
 elif command -v wget >/dev/null 2>&1; then
-  # Without a token Wget may follow redirects to any scheme; every file it
-  # downloads is still checked against the hashes pinned in this script.
+  # The fetch routine applies the same manual redirect and hash policy to
+  # Wget. It never lets Wget forward the session header automatically.
   FETCH_TOOL=wget
 else
   echo "Need curl or wget for installation." >&2
@@ -154,7 +154,16 @@ fi
 DEFAULT_BASE_URL=https://download.r2kernel.org/r2kernel/releases/1.0.0
 DEFAULT_DISTRIBUTION_URL=https://download.r2kernel.org
 BASE_URL="${R2KERNEL_RELEASE_BASE_URL:-$DEFAULT_BASE_URL}"
-DISTRIBUTION_URL="${R2KERNEL_DISTRIBUTION_URL:-$DEFAULT_DISTRIBUTION_URL}"
+# A given distribution URL wins. A given release base URL alone names a static
+# mirror, so it replaces the default distribution service instead of being
+# ignored. An empty value means unset.
+if [ -n "${R2KERNEL_DISTRIBUTION_URL:-}" ]; then
+  DISTRIBUTION_URL="$R2KERNEL_DISTRIBUTION_URL"
+elif [ -n "${R2KERNEL_RELEASE_BASE_URL:-}" ]; then
+  DISTRIBUTION_URL=""
+else
+  DISTRIBUTION_URL="$DEFAULT_DISTRIBUTION_URL"
+fi
 if [ -n "$DISTRIBUTION_URL" ]; then
   RELEASE_URL="$DISTRIBUTION_URL"
 else
@@ -183,7 +192,7 @@ case "$RELEASE_URL" in
     ;;
 esac
 if [ -n "$DISTRIBUTION_URL" ]; then
-  echo "R2Kernel download notice: official distribution requests may log install ID, client IP, user agent, artifact, response status, and requested artifact size (the stored size, not bytes received) for delivery, security, and release diagnostics." >&2
+  echo "R2Kernel download notice: official distribution requests may log install ID, client IP, user agent, artifact, response status, and requested artifact size (the stored size, not bytes received) for delivery, security, license compliance, and release diagnostics." >&2
 fi
 
 # The installer runs as a child process, so this cleanup runs on every exit.
@@ -219,15 +228,97 @@ if [ -n "$INSTALL_TOKEN" ]; then
   )
 fi
 fetch() {
-  if [ "$FETCH_TOOL" = "curl" ]; then
-    if [ -n "$CURL_AUTH_HEADER" ]; then
-      curl -fsSL --proto "$CURL_PROTOCOLS" --proto-redir "$CURL_PROTOCOLS" -H @"$CURL_AUTH_HEADER" -H "X-R2Kernel-Install-Id: $INSTALL_ID" "$1" -o "$2"
+  FETCH_URL="$1"
+  FETCH_OUTPUT="$2"
+  FETCH_PRIVATE=1
+  FETCH_HOPS=0
+  FETCH_HEADERS="$INSTALL_TMP_DIR/fetch-headers"
+  FETCH_ERRORS="$INSTALL_TMP_DIR/fetch-errors"
+  FETCH_URL_FILE="$INSTALL_TMP_DIR/fetch-url"
+  FETCH_CURL_CONFIG="$INSTALL_TMP_DIR/fetch-curl-config"
+  CR="$(printf '\r')"
+  # Every redirect is handled here. curl's cross-origin Authorization removal
+  # does not remove our custom installation-session header. Only the first
+  # control request carries either header; subsequent hops are credential-free.
+  while [ "$FETCH_HOPS" -le 10 ]; do
+    FETCH_OK=0
+    if [ "$FETCH_TOOL" = "curl" ]; then
+      set -- -q -fsS --proto "$CURL_PROTOCOLS" --proto-redir "$CURL_PROTOCOLS" --dump-header "$FETCH_HEADERS" -o "$FETCH_OUTPUT"
+      if [ "$FETCH_PRIVATE" = 1 ]; then
+        if [ -n "$CURL_AUTH_HEADER" ]; then set -- "$@" -H @"$CURL_AUTH_HEADER"; fi
+        set -- "$@" -H "X-R2Kernel-Install-Id: $INSTALL_ID" "$FETCH_URL"
+      else
+        # A private CDN URL is a bearer capability: keep it off argv as well as
+        # diagnostics. Redirect validation below refuses config metacharacters.
+        (umask 077; printf 'url = "%s"\n' "$FETCH_URL" > "$FETCH_CURL_CONFIG")
+        set -- "$@" --config "$FETCH_CURL_CONFIG"
+      fi
+      if [ "$FETCH_PRIVATE" = 1 ]; then
+        curl "$@" 2> "$FETCH_ERRORS" && FETCH_OK=1
+      else
+        (unset R2KERNEL_INSTALL_TOKEN R2KERNEL_INSTALL_ID; curl "$@") 2> "$FETCH_ERRORS" && FETCH_OK=1
+      fi
     else
-      curl -fsSL --proto "$CURL_PROTOCOLS" --proto-redir "$CURL_PROTOCOLS" -H "X-R2Kernel-Install-Id: $INSTALL_ID" "$1" -o "$2"
+      set -- --no-config -qO "$FETCH_OUTPUT" --server-response --max-redirect=0
+      if [ "$FETCH_PRIVATE" = 1 ]; then
+        set -- "$@" --header="X-R2Kernel-Install-Id: $INSTALL_ID" "$FETCH_URL"
+      else
+        (umask 077; printf '%s\n' "$FETCH_URL" > "$FETCH_URL_FILE")
+        set -- "$@" --input-file="$FETCH_URL_FILE"
+      fi
+      # Wget returns failure for a refused redirect. Its response header block
+      # still identifies that redirect, and stays in the private temp directory.
+      if [ "$FETCH_PRIVATE" = 1 ]; then
+        wget "$@" 2> "$FETCH_HEADERS" && FETCH_OK=1
+      else
+        (unset R2KERNEL_INSTALL_TOKEN R2KERNEL_INSTALL_ID; wget "$@") 2> "$FETCH_HEADERS" && FETCH_OK=1
+      fi
     fi
-  else
-    wget -qO "$2" --header="X-R2Kernel-Install-Id: $INSTALL_ID" "$1"
-  fi
+    FETCH_STATUS=""
+    FETCH_LOCATION=""
+    FETCH_LOCATION_COUNT=0
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%"$CR"}"
+      # Wget indents server-response headers; curl does not.
+      line="${line#"${line%%[![:space:]]*}"}"
+      case "$line" in
+        HTTP/*' '*)
+          FETCH_STATUS="${line#* }"; FETCH_STATUS="${FETCH_STATUS%% *}"
+          FETCH_LOCATION=""; FETCH_LOCATION_COUNT=0 ;;
+        [Ll][Oo][Cc][Aa][Tt][Ii][Oo][Nn]:*)
+          FETCH_LOCATION_COUNT=$((FETCH_LOCATION_COUNT + 1))
+          FETCH_LOCATION="${line#*:}"
+          FETCH_LOCATION="${FETCH_LOCATION#"${FETCH_LOCATION%%[![:space:]]*}"}"
+          ;;
+      esac
+    done < "$FETCH_HEADERS"
+    if [ "$FETCH_STATUS" = 200 ] && [ "$FETCH_OK" = 1 ]; then return 0; fi
+    case "$FETCH_STATUS" in
+      301|302|303|307|308) ;;
+      *) echo "Installer download request failed; no content is executed." >&2; return 1 ;;
+    esac
+    [ "$FETCH_LOCATION_COUNT" = 1 ] || { echo "Installer redirect has missing or duplicate locations." >&2; return 1; }
+    case "$FETCH_LOCATION" in
+      *[[:space:]]*|*'"'*|*'\'*) echo "Installer redirect URL is invalid." >&2; return 1 ;;
+    esac
+    case "$FETCH_LOCATION" in
+      https://*) ;;
+      http://*)
+        case "$FETCH_URL" in https://*) echo "Installer redirect must not downgrade HTTPS." >&2; return 1 ;; esac
+        [ "$CURL_PROTOCOLS" = "=http,https" ] || { echo "Installer redirect must use HTTPS." >&2; return 1; } ;;
+      *) echo "Installer redirect must be an absolute HTTPS URL." >&2; return 1 ;;
+    esac
+    FETCH_AUTHORITY="${FETCH_LOCATION#*://}"
+    FETCH_AUTHORITY="${FETCH_AUTHORITY%%/*}"
+    FETCH_AUTHORITY="${FETCH_AUTHORITY%%\?*}"
+    FETCH_AUTHORITY="${FETCH_AUTHORITY%%\#*}"
+    case "$FETCH_AUTHORITY" in ""|*@*) echo "Installer redirect must not contain credentials." >&2; return 1 ;; esac
+    FETCH_URL="$FETCH_LOCATION"
+    FETCH_PRIVATE=0
+    FETCH_HOPS=$((FETCH_HOPS + 1))
+  done
+  echo "Installer download exceeded its redirect limit." >&2
+  return 1
 }
 
 INSTALLER_ASSET="r2kernel-installer-$VERSION-$os_name-$arch_name.bin"
