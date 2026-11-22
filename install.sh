@@ -5,9 +5,9 @@
 set -eu
 
 main() {
-VERSION=1.0.0
-TAG=v1.0.0
-EXPECTED_MANIFEST_SHA256=530151e1a12e51f7d2984c94746a44c42fe493f08968a05691d127f5e8a699dc
+VERSION=1.0.1
+TAG=v1.0.1
+EXPECTED_MANIFEST_SHA256=3e195aaf707d39ec853dcd8b335b2dc495e5e65dc43bf6d1cf13419a6e6775f8
 DEFAULT_REPO_SLUG=r2kernel/r2kernel
 REPO_SLUG="${R2KERNEL_RELEASE_REPO_SLUG:-$DEFAULT_REPO_SLUG}"
 if [ -n "${R2KERNEL_INSTALL_ID:-}" ]; then
@@ -151,7 +151,7 @@ else
   exit 1
 fi
 
-DEFAULT_BASE_URL=https://download.r2kernel.org/r2kernel/releases/1.0.0
+DEFAULT_BASE_URL=https://download.r2kernel.org/r2kernel/releases/1.0.1
 DEFAULT_DISTRIBUTION_URL=https://download.r2kernel.org
 BASE_URL="${R2KERNEL_RELEASE_BASE_URL:-$DEFAULT_BASE_URL}"
 # A given distribution URL wins. A given release base URL alone names a static

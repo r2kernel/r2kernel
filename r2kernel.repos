@@ -2,8 +2,8 @@ repositories:
   r2kernel-sdk:
     type: git
     url: https://github.com/r2kernel/sdk.git
-    version: v1.0.0
+    version: v1.0.1
   r2kernel-docs:
     type: git
     url: https://github.com/r2kernel/docs.git
-    version: v1.0.0
+    version: v1.0.1

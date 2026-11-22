@@ -4,8 +4,8 @@ R2Kernel™ provides a common runtime for launching, connecting, and monitoring
 robot software, on a single host or across multiple hosts within one robot. It
 is a project of Librerobotics™.
 
-This repository is the release entry for `v1.0.0` (version
-`1.0.0`). It holds the installer bootstrap and the release
+This repository is the release entry for `v1.0.1` (version
+`1.0.1`). It holds the installer bootstrap and the release
 metadata. The SDK and the documentation have their own repositories.
 
 ## Install
@@ -35,11 +35,11 @@ hardware, and R2Kernel has not been qualified for hard real-time use; see
    To install exactly this release instead of the current stable one:
 
    ```bash
-   curl --proto '=https' --tlsv1.2 -fsSL https://download.r2kernel.org/install.sh | sh -s -- --version 1.0.0
+   curl --proto '=https' --tlsv1.2 -fsSL https://download.r2kernel.org/install.sh | sh -s -- --version 1.0.1
    ```
 
    The `install.sh` attached to this release in
-   [Releases](https://github.com/r2kernel/r2kernel/releases) is also fixed to `1.0.0`.
+   [Releases](https://github.com/r2kernel/r2kernel/releases) is also fixed to `1.0.1`.
 
 3. Check the installation in the default location:
 
